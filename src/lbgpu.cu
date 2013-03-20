@@ -1235,20 +1235,7 @@ __global__ void reinit_node_force(LB_node_force_gpu node_f){
   }
 }
 
-/**set extern force on single nodes kernel
- * @param n_extern_nodeforces		number of nodes (Input)
- * @param *extern_nodeforces		Pointer to extern node force array (Input)
- * @param node_f			node force struct (Output)
-*/
-__global__ void init_boundaries(int *boundary_node_list, int *boundary_index_list, int number_of_boundnodes, LB_nodes_gpu n_a, LB_nodes_gpu n_b){
 
-  unsigned int index = blockIdx.y * gridDim.x * blockDim.x + blockDim.x * blockIdx.x + threadIdx.x;
-
-  if(index<number_of_boundnodes){
-    n_a.boundary[boundary_node_list[index]] = boundary_index_list[index]+1;
-    n_b.boundary[boundary_node_list[index]] = boundary_index_list[index]+1;
-  }
-}
 __global__ void init_extern_nodeforces(int n_extern_nodeforces, LB_extern_nodeforce_gpu *extern_nodeforces, LB_node_force_gpu node_f){
 
   unsigned int index = blockIdx.y * gridDim.x * blockDim.x + blockDim.x * blockIdx.x + threadIdx.x;
@@ -1267,7 +1254,7 @@ __global__ void init_extern_nodeforces(int n_extern_nodeforces, LB_extern_nodefo
  * @param mode		Pointer to the local register values mode (Output)
 */
 __device__ void calc_m_from_n(LB_nodes_gpu n_a, unsigned int index, float *mode){
-  size_t index = blockIdx.y * gridDim.x * blockDim.x + blockDim.x * blockIdx.x + threadIdx.x;
+  
   #pragma unroll
   for(int ii=0;ii<SHANCHEN;++ii) { 
   /* mass mode */
@@ -1338,31 +1325,6 @@ __device__ void calc_m_from_n(LB_nodes_gpu n_a, unsigned int index, float *mode)
  }
 }
 
-/** part interaction kernel
- * @param n_a				Pointer to local node residing in array a (Input)
- * @param *particle_data		Pointer to the particle position and velocity (Input)
- * @param *particle_force		Pointer to the particle force (Input)
- * @param *part				Pointer to the rn array of the particles (Input)
- * @param node_f			Pointer to local node force (Input)
-*/
-__global__ void calc_fluid_particle_ia(LB_nodes_gpu n_a, LB_particle_gpu *particle_data, LB_particle_force_gpu *particle_force, LB_node_force_gpu node_f, LB_particle_seed_gpu *part){
-
-  unsigned int part_index = blockIdx.y * gridDim.x * blockDim.x + blockDim.x * blockIdx.x + threadIdx.x;
-  unsigned int node_index[8];
-  float delta[8];
-  float delta_j[3];
-  LB_randomnr_gpu rng_part;
-
-  if(part_index<para.number_of_particles){
-
-    rng_part.seed = part[part_index].seed;
-    /**calc of the force which act on the particle */
-    calc_viscous_force(n_a, delta, particle_data, particle_force, part_index, &rng_part, delta_j, node_index);
-    /**calc of the force which acts back to the fluid node */
-    calc_node_force(delta, delta_j, node_index, node_f);
-    part[part_index].seed = rng_part.seed;
-  }
-}
 __device__ void relax_modes(float *mode, unsigned int index, LB_node_force_gpu node_f, LB_values_gpu *d_v){
   float Rho_tot=0.f;
   float u_tot[3]={0.f,0.f,0.f};
@@ -2237,7 +2199,7 @@ __device__ void calc_viscous_force(LB_nodes_gpu n_a, float *delta, float * partg
   random_01(rn_part);
   viscforce[0+ii*3] += para.lb_coupl_pref[ii]*(rn_part->randomnr[0]-0.5f);
   viscforce[1+ii*3] += para.lb_coupl_pref[ii]*(rn_part->randomnr[1]-0.5f);
-  random_01(+ii*3rn_part);
+  random_01(rn_part);
   viscforce[2+ii*3] += para.lb_coupl_pref[ii]*(rn_part->randomnr[0]-0.5f);
 #endif	  
   /** delta_j for transform momentum transfer to lattice units which is done in calc_node_force
@@ -2675,6 +2637,22 @@ __global__ void init_boundaries(int *boundindex, int number_of_boundnodes, LB_no
   }	
 }
 
+
+/**set extern force on single nodes kernel
+ * @param n_extern_nodeforces		number of nodes (Input)
+ * @param *extern_nodeforces		Pointer to extern node force array (Input)
+ * @param node_f			node force struct (Output)
+*/
+__global__ void init_boundaries(int *boundary_node_list, int *boundary_index_list, int number_of_boundnodes, LB_nodes_gpu n_a, LB_nodes_gpu n_b){
+
+  unsigned int index = blockIdx.y * gridDim.x * blockDim.x + blockDim.x * blockIdx.x + threadIdx.x;
+
+  if(index<number_of_boundnodes){
+    n_a.boundary[boundary_node_list[index]] = boundary_index_list[index]+1;
+    n_b.boundary[boundary_node_list[index]] = boundary_index_list[index]+1;
+  }
+}
+
 /**reset the boundary flag of every node
  * @param n_a		Pointer to local node residing in array a (Input)
  * @param n_b		Pointer to local node residing in array b (Input)	
@@ -3030,7 +3008,7 @@ void lb_init_GPU(LB_parameters_gpu *lbpar_gpu){
   int blocks_per_grid_particles_x = (lbpar_gpu->number_of_particles + threads_per_block_particles * blocks_per_grid_particles_y - 1)/(threads_per_block_particles * blocks_per_grid_particles_y);
   dim3 dim_grid_particles = make_uint3(blocks_per_grid_particles_x, blocks_per_grid_particles_y, 1);
 
-  //SAW FIXME KERNELCALL(reset_boundaries, dim_grid, threads_per_block, (nodes_a, nodes_b));
+  KERNELCALL(reset_boundaries, dim_grid, threads_per_block, (nodes_a, nodes_b));
 
   /** calc of veloctiydensities from given parameters and initialize the Node_Force array with zero */
   KERNELCALL(calc_n_equilibrium, dim_grid, threads_per_block, (nodes_a, gpu_check));
@@ -3148,7 +3126,8 @@ void lb_init_boundaries_GPU(int host_n_lb_boundaries, int number_of_boundnodes, 
     int blocks_per_grid_bound_x = (number_of_boundnodes + threads_per_block_bound * blocks_per_grid_bound_y - 1) /(threads_per_block_bound * blocks_per_grid_bound_y);
     dim3 dim_grid_bound = make_uint3(blocks_per_grid_bound_x, blocks_per_grid_bound_y, 1);
 
-    KERNELCALL(init_boundaries, dim_grid_bound, threads_per_block_bound, (boundary_node_list, boundary_index_list, number_of_boundnodes, nodes_a, nodes_b));
+    KERNELCALL(init_boundaries, dim_grid_bound, threads_per_block_bound, 
+               (boundary_node_list, boundary_index_list, number_of_boundnodes, nodes_a, nodes_b));
   }
 
   cudaThreadSynchronize();
