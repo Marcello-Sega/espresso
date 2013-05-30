@@ -680,7 +680,6 @@ int set_particle_dip(int part, double dip[3])
   if (pnode == -1)
     return ES_ERROR;
   mpi_send_dip(pnode, part, dip);
-
   return ES_OK;
 }
 

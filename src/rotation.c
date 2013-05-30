@@ -74,43 +74,35 @@ static void define_Qdd(Particle *p, double Qd[4], double Qdd[4], double S[3], do
 /** Convert director to quaternions */
 int convert_quatu_to_quat(double d[3], double quat[4])
 {
-  double d_xy, dm;
-  double theta2, phi2;
-
-  // Calculate magnitude of the given vector
-  dm = sqrt(d[0]*d[0] + d[1]*d[1] + d[2]*d[2]);
-
-  // The vector needs to be != 0 to be converted into a quaternion
-  if (dm < ROUND_ERROR_PREC) {
-    return 1;
+  double cos_director[3],rotation_angle;
+  double tmp;
+  double z[3]={0.0, 0.0, 1.0};
+  // Calculate the cosine directors of the axis along which we are rotating to get d[] starting from z[]
+  unit_vector(d,d);
+  vector_product(z,d,cos_director);
+  tmp  = sqrlen(cos_director);
+  if(tmp<1e-12) { 
+        if (d[2]>0) { 
+	   quat[0] = 1;
+	   quat[1] = 0;
+	   quat[2] = 0;
+	   quat[3] = 0;
+        } else { 
+	   quat[0] = 0;
+	   quat[1] = 1;
+	   quat[2] = 0;
+	   quat[3] = 0;
+        }
+        return 0;
   }
-  else {
-    // Calculate angles 
-    d_xy = sqrt(d[0]*d[0] + d[1]*d[1]);
-    // If dipole points along z axis:
-    if (d_xy == 0){
-      // We need to distinguish between (0,0,d_z) and (0,0,d_z)
-      if (d[2]>0)
-       theta2 = 0;
-      else
-       theta2 = PI/2.;
-      phi2 = 0;
-    }
-    else {
-      // Here, we take care of all other directions
-      //Here we suppose that theta2 = 0.5*theta and phi2 = 0.5*(phi - PI/2),
-      //where theta and phi - angles are in spherical coordinates
-      theta2 = 0.5*acos(d[2]/dm);
-      if (d[1] < 0) phi2 = -0.5*acos(d[0]/d_xy) - PI*0.25;
-      else phi2 = 0.5*acos(d[0]/d_xy) - PI*0.25;
-    }
+  rotation_angle = -asin(tmp);
+  unit_vector(cos_director,cos_director);
 
-    // Calculate the quaternion from the angles
-    quat[0] =  cos(theta2) * cos(phi2);
-    quat[1] = -sin(theta2) * cos(phi2);
-    quat[2] = -sin(theta2) * sin(phi2);
-    quat[3] =  cos(theta2) * sin(phi2);
-  }
+  // Calculate the quaternion from the angles
+  quat[0] =  cos(rotation_angle/2.);
+  quat[1] =  sin(rotation_angle/2.) * cos_director[0]; 
+  quat[2] =  sin(rotation_angle/2.) * cos_director[1];
+  quat[3] =  sin(rotation_angle/2.) * cos_director[2];
   return 0;
 }
 

@@ -140,7 +140,7 @@ void tclcommand_part_print_quatu(Particle *part, char *buffer, Tcl_Interp *inter
   Tcl_AppendResult(interp, buffer, " ", (char *)NULL);
   Tcl_PrintDouble(interp, part->r.quatu[1], buffer);
   Tcl_AppendResult(interp, buffer, " ", (char *)NULL);
-  Tcl_PrintDouble(interp, part->r.quat[2], buffer);
+  Tcl_PrintDouble(interp, part->r.quatu[2], buffer);
   Tcl_AppendResult(interp, buffer, (char *)NULL);
 }
 #endif

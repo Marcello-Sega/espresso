@@ -59,8 +59,8 @@ void define_rotation_matrix(Particle *p, double A[9]);
 MDINLINE void convert_quat_to_quatu(double quat[4], double quatu[3])
 {
   /* director */
-  quatu[0] = 2*(quat[1]*quat[3] + quat[0]*quat[2]);
-  quatu[1] = 2*(quat[2]*quat[3] - quat[0]*quat[1]);
+  quatu[0] = 2*(quat[1]*quat[3] - quat[0]*quat[2]);
+  quatu[1] = 2*(quat[2]*quat[3] + quat[0]*quat[1]);
   quatu[2] =   (quat[0]*quat[0] - quat[1]*quat[1] -
 		quat[2]*quat[2] + quat[3]*quat[3]); 
 }
