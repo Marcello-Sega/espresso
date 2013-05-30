@@ -133,7 +133,7 @@ void tclcommand_part_print_quat(Particle *part, char *buffer, Tcl_Interp *interp
   Tcl_AppendResult(interp, buffer, (char *)NULL);
 }
 
-/* TODO: This function is not used anywhere. To be removed?  */
+/* TODO: This function is not used anywhere. To be removed? (FIXED, see tclprint_to_result_Particle() MS ) */
 void tclcommand_part_print_quatu(Particle *part, char *buffer, Tcl_Interp *interp)
 {
   Tcl_PrintDouble(interp, part->r.quatu[0], buffer);
@@ -622,7 +622,7 @@ int tclcommand_part_parse_print(Tcl_Interp *interp, int argc, char **argv,
     else if (ARG0_IS_S("quat"))
       tclcommand_part_print_quat(&part, buffer, interp);
    else if (ARG0_IS_S("quatu"))
-      tclcommand_part_print_quat(&part, buffer, interp);
+      tclcommand_part_print_quatu(&part, buffer, interp);
     else if (ARG0_IS_S("omega") || ARG0_IS_S_EXACT("omega_lab"))
       tclcommand_part_print_omega_lab_frame(&part, buffer, interp);
     else if (ARG0_IS_S_EXACT("omega_body"))
