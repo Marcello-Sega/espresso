@@ -202,9 +202,9 @@ proc writevsf { file args } {
         set maxlen 8
         set ll  [llength [lrange $aids $start end ]]
         while { $ll >= $maxlen } {
+              puts $file "atom [join [lrange $aids $start [expr $start + $maxlen -1]] ,] $desc"
               incr start $maxlen
               set ll  [llength [lrange $aids $start end ]]
-              puts $file "atom [join [lrange $aids $start [expr $start + $maxlen -1]] ,] $desc"
         }
         if { $start < [llength $aids ] } { 
           puts $file "atom [join [lrange $aids  $start  end] ,] $desc"
