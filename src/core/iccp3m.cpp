@@ -575,13 +575,13 @@ void calc_long_range_forces_iccp3m()
             runtimeErrorMsg() << "ICCP3M conflicts with ELC dielectric constrast";
 		}
 		p3m_charge_assign();
-		p3m_calc_kspace_forces(1,0);
+		p3m_calc_kspace_forces(1,0,0);
 		ELC_add_force();
 		break;
 
 	case COULOMB_P3M:
 		p3m_charge_assign();
-		p3m_calc_kspace_forces(1,0);
+		p3m_calc_kspace_forces(1,0,0);
 		break;
 #endif
 	case COULOMB_MMM2D:

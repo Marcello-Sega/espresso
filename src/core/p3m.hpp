@@ -107,11 +107,20 @@ typedef struct {
 
   /** send/recv mesh sizes */
   p3m_send_mesh  sm;
-
+  
   /** Field to store grid points to send. */
   double *send_grid; 
   /** Field to store grid points to recv */
   double *recv_grid;
+
+#ifdef IPC
+  double *ipc_mesh;
+  double *ipc_grad_chi_data;
+  double * ipc_grad_chi[3];
+  double *ipc_old_rs_mesh;
+  double ipc_omega;
+  double ipc_tolerance;
+#endif
 } p3m_data_struct;
 
 /** P3M parameters. */
@@ -127,6 +136,10 @@ void p3m_set_bjerrum(void);
 
 int p3m_adaptive_tune(char **log);
 
+#ifdef IPC
+void  p3m_ipc_iterate(void);
+#endif
+
 /** Initialize all structures, parameters and arrays needed for the 
  *  P3M algorithm for charge-charge interactions.
  */
@@ -137,7 +150,7 @@ void p3m_init(void);
 void p3m_scaleby_box_l();
 
 /** compute the k-space part of forces and energies for the charge-charge interaction  **/
-double p3m_calc_kspace_forces(int force_flag, int energy_flag);
+double p3m_calc_kspace_forces(int force_flag, int energy_flag, int ipc_flag);
 
 /** computer the k-space part of the stress tensor **/
 void p3m_calc_kspace_stress (double* stress);

@@ -27,6 +27,7 @@
 #include "EspressoSystemInterface.hpp"
 
 #include "p3m_gpu.hpp"
+#include "p3m.hpp"
 #include "maggs.hpp"
 #include "forces_inline.hpp"
 #include "electrokinetics.hpp"
@@ -263,7 +264,7 @@ void calc_long_range_forces()
     else
       p3m_charge_assign();
     
-    p3m_calc_kspace_forces(1,0);
+    p3m_calc_kspace_forces(1,0,0);
     
     if (elc_params.dielectric_contrast_on)
       ELC_P3M_restore_p3m_sums();
@@ -286,12 +287,15 @@ void calc_long_range_forces()
   case COULOMB_P3M:
     FORCE_TRACE(printf("%d: Computing P3M forces.\n", this_node));
     p3m_charge_assign();
+#ifdef IPC
+    p3m_ipc_iterate();
+#endif
 #ifdef NPT
     if (integ_switch == INTEG_METHOD_NPT_ISO)
-      nptiso.p_vir[0] += p3m_calc_kspace_forces(1,1);
+      nptiso.p_vir[0] += p3m_calc_kspace_forces(1,1,0);
     else
 #endif
-      p3m_calc_kspace_forces(1, 0);
+      p3m_calc_kspace_forces(1, 0, 0);
     break;
 #endif
   case COULOMB_MAGGS:

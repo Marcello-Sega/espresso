@@ -170,7 +170,7 @@ void calc_long_range_virials()
   case COULOMB_P3M: {
     int k;
     p3m_charge_assign();
-    virials.coulomb[1] = p3m_calc_kspace_forces(0,1);
+    virials.coulomb[1] = p3m_calc_kspace_forces(0,1,0);
     
     for(k=0;k<3;k++)
       p_tensor.coulomb[9+ k*3 + k] = virials.coulomb[1]/3.;
@@ -214,7 +214,7 @@ void calc_long_range_virials()
   case DIPOLAR_P3M: {
     int k;
     dp3m_dipole_assign();
-    virials.dipolar[1] = dp3m_calc_kspace_forces(0,1);
+    virials.dipolar[1] = dp3m_calc_kspace_forces(0,1,0);
      
     for(k=0;k<3;k++)
       p_tensor.coulomb[9+ k*3 + k] = virials.dipolar[1]/3.;
