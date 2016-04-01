@@ -904,5 +904,4 @@ inline void add_single_particle_force(Particle *p) {
   add_external_potential_forces(p);
 #endif         
 }
-
-#endif
+#endif //_FORCES_INLINE_HPP

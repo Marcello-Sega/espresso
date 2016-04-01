@@ -32,7 +32,6 @@
 #include "parser.hpp"
 #include "electrokinetics.hpp"
 
-#ifdef LB_GPU
 
 #ifdef SHANCHEN
 int tclprint_to_result_affinityIA(Tcl_Interp *interp, int i, int j)
@@ -82,6 +81,7 @@ int tclcommand_inter_parse_affinity(Tcl_Interp * interp,int part_type_a,int part
 }
 #endif
 
+#ifdef LB_GPU
 static int lbnode_parse_set(Tcl_Interp *interp, int argc, char **argv, int *ind)
 {
   double f[3];
@@ -204,6 +204,14 @@ int tclcommand_lbfluid_print_interpolated_velocity(Tcl_Interp *interp, int argc,
 /** TCL Interface: The \ref lbfluid command. */
 int tclcommand_lbfluid(ClientData data, Tcl_Interp *interp, int argc, char **argv)
 {
+#ifdef PARTIAL_PERIODIC
+#ifdef SHANCHEN
+	if(!PERIODIC(0) || !PERIODIC(1) || !PERIODIC(2)) { 
+        	printf("ERROR: SHANCHEN does not support (yet) partial periodicity, please use [setmd periodic 1 1 1]\n");
+		errexit();
+	}
+#endif
+#endif
 
 #ifdef ELECTROKINETICS
   if ( ek_initialized ) 
@@ -418,7 +426,7 @@ int tclcommand_lbfluid(ClientData data, Tcl_Interp *interp, int argc, char **arg
       {
         if ( argc < LB_COMPONENTS + 1 ) 
         {
-          Tcl_AppendResult(interp, "dens requires \"", LB_COMPONENTS  ,"\"argument(s)", (char *)NULL);
+          Tcl_AppendResult(interp, "dens requires a number of argument equal to the number of fluid components", (char *)NULL);
           return TCL_ERROR;
         }
         else 
@@ -703,6 +711,40 @@ int tclcommand_lbfluid(ClientData data, Tcl_Interp *interp, int argc, char **arg
         return TCL_ERROR;
 #endif
       }
+      else if (ARG0_IS_S_EXACT("parameters")) { 
+          argc -= 1;
+          argv += 1;
+	  char buffer[1024];
+	  if (LB_COMPONENTS==1) {
+		snprintf(buffer,1024, "{ agrid %f } { tau %f } { rho %f } { viscosity %f } { bulk_viscosity %f } { gamma_odd %f } { gamma_even %f } { friction %f } { ext_force { %f %f %f } }  ",
+                lbpar.agrid,lbpar.tau,
+		lbpar.rho[0],
+		lbpar.viscosity[0], 
+		lbpar.bulk_viscosity[0], 
+		lbpar.gamma_odd[0], 
+		lbpar.gamma_even[0], 
+		lbpar.friction[0], 
+		lbpar.ext_force[0], lbpar.ext_force[1],lbpar.ext_force[2]
+		);
+	  }
+#ifdef SHANCHEN
+	  if (LB_COMPONENTS==2) {
+		snprintf(buffer,1024, "{ agrid %f } { tau %f } { rho { %f %f } } { viscosity { %f %f } } { bulk_viscosity { %f %f } } { gamma_odd { %f %f } } { gamma_even { %f %f } } { friction { %f %f } } { ext_force { { %f %f %f } { %f %f %f } } sc_coupling { %f %f %f} }  ",
+                lbpar.agrid,lbpar.tau,
+		lbpar.rho[0], lbpar.rho[1],
+		lbpar.viscosity[0], lbpar.viscosity[1],
+		lbpar.bulk_viscosity[0], lbpar.bulk_viscosity[1],
+		lbpar.gamma_odd[0], lbpar.gamma_odd[1],
+		lbpar.gamma_even[0], lbpar.gamma_even[1],
+		lbpar.friction[0], lbpar.friction[1],
+		lbpar.ext_force[0], lbpar.ext_force[1],lbpar.ext_force[2],
+		lbpar.ext_force[3], lbpar.ext_force[4],lbpar.ext_force[5],
+		lbpar.coupling[0], lbpar.coupling[1],lbpar.coupling[2]
+		);
+	  }
+#endif
+	  Tcl_AppendResult(interp, buffer, (char *)NULL);
+      }
       else if (ARG0_IS_S_EXACT("print"))
       {
         if ( argc < 3 || (ARG1_IS_S_EXACT("vtk") && argc < 4) )
@@ -865,7 +907,6 @@ int tclcommand_lbfluid(ClientData data, Tcl_Interp *interp, int argc, char **arg
   /* thermo_switch is retained for backwards compatibility */
   thermo_switch = (thermo_switch | THERMO_LB);
   mpi_bcast_parameter(FIELD_THERMO_SWITCH);
-
   return TCL_OK;
 #else /* !defined LB */
   Tcl_AppendResult(interp, "LB is not compiled in!", NULL);
@@ -960,7 +1001,6 @@ int tclcommand_lbnode(ClientData data, Tcl_Interp *interp, int argc, char **argv
       else if (ARG0_IS_S_EXACT("u") || ARG0_IS_S_EXACT("v") || ARG0_IS_S_EXACT("velocity")) 
       {
         lb_lbnode_get_u(coord, double_return);
-
         for (counter = 0; counter < 3; counter++) 
         {
           Tcl_PrintDouble(interp, double_return[counter], double_buffer);
