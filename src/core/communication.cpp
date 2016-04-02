@@ -2121,7 +2121,6 @@ void mpi_bcast_coulomb_params_slave(int node, int parm)
   }
 
 #endif  
-  
   on_coulomb_change();
 #endif
 }

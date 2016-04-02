@@ -269,6 +269,9 @@ void calc_long_range_forces()
     }
     else
       p3m_charge_assign();
+#ifdef IPC
+    if(p3m.ipc) { exit(printf("IPC not tested with ELC yet...\n")); p3m_ipc_iterate();}
+#endif
     
     p3m_calc_kspace_forces(1,0,0);
     
@@ -294,7 +297,7 @@ void calc_long_range_forces()
     FORCE_TRACE(printf("%d: Computing P3M forces.\n", this_node));
     p3m_charge_assign();
 #ifdef IPC
-    p3m_ipc_iterate();
+    if(p3m.ipc) p3m_ipc_iterate();
 #endif
 #ifdef NPT
     if (integ_switch == INTEG_METHOD_NPT_ISO)

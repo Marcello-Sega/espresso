@@ -59,6 +59,9 @@ extern int lb_components ; // global variable holding the number of fluid compon
 #define LBPAR_COUPLING 7
 #define LBPAR_MOBILITY 8
 #endif
+#ifdef IPC
+#define LBPAR_EPSILON 9
+#endif
 
 /** Note these are used for binary logic so should be powers of 2 */
 #define LB_COUPLE_NULL        1
@@ -186,6 +189,9 @@ typedef struct {
   double mobility[LB_COMPONENTS];
   double coupling[LB_COMPONENTS*LB_COMPONENTS];
   int remove_momentum;
+#ifdef IPC
+  double ipc_eps[LB_COMPONENTS];
+#endif
 #endif // SHANCHEN  
   /** Flag determining whether gamma_shear, gamma_odd, and gamma_even are calculated
    *  from gamma_shear in such a way to yield a TRT LB with minimized slip at
@@ -576,6 +582,9 @@ int lb_lbfluid_get_ext_force(double* p_f);
 int lb_lbfluid_set_shanchen_coupling(double * p_coupling);
 int lb_lbfluid_set_mobility(double * p_mobility);
 #endif 
+#ifdef IPC
+int lb_lbfluid_set_epsilon(double * p_mobility);
+#endif
 int lb_set_lattice_switch(int py_switch);
 int lb_get_lattice_switch(int* py_switch);
 

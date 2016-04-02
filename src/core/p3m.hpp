@@ -114,10 +114,15 @@ typedef struct {
   double *recv_grid;
 
 #ifdef IPC
+  bool   ipc ;
   double *ipc_mesh;
+  double ipc_induced_charge2;
+  int    ipc_mesh_size;
+  bool   ipc_use_boundaries;
+  bool   ipc_use_LB_mesh;
   double *ipc_grad_chi_data;
-  double * ipc_grad_chi[3];
-  double *ipc_old_rs_mesh;
+  double * ipc_grad_chi[4];
+  double *ipc_rs_mesh;
   double ipc_omega;
   double ipc_tolerance;
 #endif
@@ -138,6 +143,7 @@ int p3m_adaptive_tune(char **log);
 
 #ifdef IPC
 void  p3m_ipc_iterate(void);
+void p3m_init_ipc(bool);
 #endif
 
 /** Initialize all structures, parameters and arrays needed for the 

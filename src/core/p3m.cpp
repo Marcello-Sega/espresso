@@ -249,9 +249,14 @@ void p3m_pre_init(void) {
   p3m.sum_q2 = 0.0;
   p3m.square_sum_q = 0.0;
 #ifdef IPC
-  p3m.ipc_old_rs_mesh = NULL;
-  p3m.ipc_grad_chi[0]=  p3m.ipc_grad_chi[1]=  p3m.ipc_grad_chi[2]= NULL;
+  p3m.ipc = false;
+  p3m.ipc_use_LB_mesh = true;
+  p3m.ipc_use_boundaries = false;
+  p3m.ipc_mesh_size = 0 ; 
   p3m.ipc_mesh = NULL;
+  p3m.ipc_rs_mesh = NULL;
+  p3m.ipc_grad_chi_data=NULL;
+  p3m.ipc_grad_chi[0]=  p3m.ipc_grad_chi[1]=  p3m.ipc_grad_chi[2]=  p3m.ipc_grad_chi[3]=NULL;
   p3m.ipc_omega=0.7;
   p3m.ipc_tolerance=1e-2;
 #endif
@@ -308,6 +313,28 @@ void p3m_set_bjerrum() {
   p3m.params.cao      = 0;
 }
 
+#ifdef IPC
+void p3m_reinit_ipc(void){
+	// TODO handle this error properly
+        if(p3m.ipc_mesh_size==0) {
+		exit(printf("inter coulomb ipc called before p3m\n"));	
+	}
+        p3m.ipc_mesh= (double *) Utils::realloc(p3m.ipc_mesh, p3m.ipc_mesh_size*sizeof(double));
+        p3m.ipc_rs_mesh = (double *) Utils::realloc(p3m.ipc_rs_mesh, p3m.ipc_mesh_size*sizeof(double));
+        p3m.ipc_grad_chi_data = (double *) Utils::realloc(p3m.ipc_grad_chi_data, 4*p3m.ipc_mesh_size*sizeof(double));
+        p3m.ipc_grad_chi[0]=&p3m.ipc_grad_chi_data[0*p3m.ipc_mesh_size];
+        p3m.ipc_grad_chi[1]=&p3m.ipc_grad_chi_data[1*p3m.ipc_mesh_size];
+        p3m.ipc_grad_chi[2]=&p3m.ipc_grad_chi_data[2*p3m.ipc_mesh_size];
+        p3m.ipc_grad_chi[3]=&p3m.ipc_grad_chi_data[3*p3m.ipc_mesh_size];
+}
+
+
+void p3m_init_ipc(bool value){
+	p3m.ipc=value;
+	p3m_reinit_ipc();
+        mpi_bcast_ipc_params();
+}
+#endif //IPC 
 void   p3m_init() {
   if(coulomb.bjerrum == 0.0) {       
     p3m.params.r_cut    = 0.0;
@@ -365,12 +392,10 @@ void   p3m_init() {
 				&p3m.ks_pnum);
     p3m.ks_mesh = (double *) Utils::realloc(p3m.ks_mesh, ca_mesh_size*sizeof(double));
 #ifdef IPC
-    p3m.ipc_mesh= (double *) Utils::realloc(p3m.ipc_mesh, ca_mesh_size*sizeof(double));
-    p3m.ipc_old_rs_mesh = (double *) Utils::realloc(p3m.ipc_old_rs_mesh, ca_mesh_size*sizeof(double));
-    p3m.ipc_grad_chi_data = (double *) Utils::realloc(p3m.ipc_grad_chi_data, 3*ca_mesh_size*sizeof(double));
-    p3m.ipc_grad_chi[0]=&p3m.ipc_grad_chi_data[0];
-    p3m.ipc_grad_chi[1]=&p3m.ipc_grad_chi_data[ca_mesh_size];
-    p3m.ipc_grad_chi[2]=&p3m.ipc_grad_chi_data[2*ca_mesh_size];
+    p3m.ipc_mesh_size = p3m.local_mesh.size;
+    if(p3m.ipc==true){
+	p3m_reinit_ipc();
+    }
 #endif 
     
 
@@ -620,46 +645,126 @@ void p3m_assign_charge(double q, double real_pos[3], int cp_cnt) {
 #ifdef IPC
 #warning USING_IPC
 
+void p3m_ipc_assign_susceptibility(void) { 
+  index_t index;
+  index_t dr[3];
+  dr[0]= 1; 
+  dr[1]= lblattice.halo_grid[0];
+  dr[2]= lblattice.halo_grid[0]*lblattice.halo_grid[1];
+  int x,y,z;
+  double pos[3],value;
+  if(p3m.ipc_use_LB_mesh == true) {
+    for(int dir=0;dir<4;dir++){
+      int cp_cnt=0;
+      for(int i=0; i<p3m.local_mesh.size; i++) p3m.rs_mesh[i] = 0.0;
+#ifdef LB
+      index = lblattice.halo_offset;
+      for (z = 1; z <= lblattice.grid[2]; z++,index+=2*lblattice.halo_grid[0]) {
+        for (y = 1; y<=lblattice.grid[1]; y++,index+=2) {
+          for (x = 1; x<=lblattice.grid[0]; x++,index++) {
+  #ifdef LB_BOUNDARIES
+            if (!lbfields[index].boundary)
+  #endif // LB_BOUNDARIES
+            {  	
+		    value = 0.;
+		    if (dir < 3){ // grad chi
+		        for(int ii=0; ii < LB_COMPONENTS; ii++) { 
+                    	    value += lbpar.ipc_eps[ii]*(lbfields[index+dr[dir]].rho[ii] - 
+                                                      lbfields[index-dr[dir]].rho[ii])/(2.*lbpar.agrid);
+		        }
+                    } else {  // chi
+		        for(int ii=0; ii < LB_COMPONENTS; ii++) { 
+                        	value += lbpar.ipc_eps[ii]*lbfields[index].rho[ii];
+		        }
+                    }
+                    lblattice.map_linear_index_to_global_pos(index, pos);
+                    p3m_assign_charge(value ,pos, cp_cnt++);
+		 }
+            }
+          }
+        }
+#endif
+#ifdef LB_GPU
+#error to be implemented
+#endif
+        for(int i=0; i<p3m.local_mesh.size; i++) p3m.ipc_grad_chi[dir][i] = p3m.rs_mesh[i];
+    }
+  } else { 
+      runtimeErrorMsg() <<"no method for susceptibility assignement chosen in IPC\n";
+  }
+}
+
 void p3m_ipc_assign_polarization_charges(int direction){
-    if(direction==0)
+    if(direction==0){
+       // p3m.ipc_grad_chi[0-2] == grad chi
+       // p3m.ipc_grad_chi[3] == chi
+       p3m.ipc_induced_charge2 = 0.0;
        for(int q_ind = 0 ; q_ind < p3m.local_mesh.size ; q_ind++){
-          p3m.ipc_mesh[q_ind] = 
-                 // real charges
-		p3m.ipc_old_rs_mesh[q_ind] 
-		// induced charges, last iteration contribution
-                + (1-p3m.ipc_omega) * (p3m.ipc_mesh[q_ind]-p3m.ipc_old_rs_mesh[q_ind]);
+	  p3m.ipc_induced_charge2 += SQR(p3m.ipc_mesh[q_ind]-p3m.ipc_rs_mesh[q_ind]);
+          p3m.ipc_mesh[q_ind]  = (1-p3m.ipc_omega) * p3m.ipc_mesh[q_ind] +  
+					2 * p3m.ipc_omega * p3m.ipc_rs_mesh[q_ind] / (1+4*M_PI*p3m.ipc_grad_chi[3][q_ind]);
        }
+    }
     for(int q_ind = 0 ; q_ind < p3m.local_mesh.size  ; q_ind++){
           // induced charges, new iteration contribution (from field)
           // TODO mind the order xyz, it might be different in Fs than in Qs
-          p3m.ipc_mesh[q_ind] += p3m.ipc_omega * ( p3m.ipc_grad_chi[direction][q_ind] * p3m.rs_mesh[q_ind] )  ;
+          p3m.ipc_mesh[q_ind] += -p3m.ipc_omega * p3m.ipc_grad_chi[direction][q_ind] * 
+					p3m.rs_mesh[q_ind] / (1+4*M_PI*p3m.ipc_grad_chi[3][q_ind])  ;
     }        
 }
 
 void  p3m_ipc_iterate(){
  
-    double epsilon, tmp;
-    /* as a first step we take the old total (polarization+free) charge distribution
-       and we update just the free charge part. Note that here p3m.rs_mesh[] still
-       holds the charges, and not the forces */
-    for(int q_ind = 0 ; q_ind < p3m.local_mesh.size; q_ind++){
-	  // p3m.ipc_old_rs_mesh[] holds the old free charges
-	  p3m.ipc_mesh[q_ind] -= p3m.ipc_old_rs_mesh[q_ind] + p3m.rs_mesh[q_ind]; 
-	  // Now p3m.ipc_old_rs_mesh[] holds the new free charges
-          // Note that  p3m.rs_mesh[] will be overwritten by forces!
-	  p3m.ipc_old_rs_mesh[q_ind] = p3m.rs_mesh[q_ind];
+    double accuracy=0, tmp=0;  
+    static bool first_iter = true;
+ 
+    /*    rho = rho_free - div P 
+     *        = rho_free - chi div E - grad chi . E  
+     *        = rho_free - 4 pi chi rho - grad chi .E
+     * => rho = (rho_free - grad chi .E) / epsilon_r    */
+
+    if(first_iter==true) { 
+        // the total (polarization + free charge) charge is initialized to zero polarization charge.
+        for(int i=0;i<p3m.ipc_mesh_size; i++) p3m.ipc_mesh[i]=p3m.rs_mesh[i];
+	first_iter=false;
     }
-    do { // overwrite p3m.rs_mesh with forces, call p3m_ipc_assign_polarization_charges
-	  epsilon=0;
-          p3m_calc_kspace_forces(0, 1, 1); 
-    	  for(int q_ind = 0 ; q_ind < p3m.local_mesh.size ; q_ind++){
-		// calculate the change in total charge wrt the last iteration
-		tmp = p3m.ipc_mesh[q_ind] - p3m.ipc_old_rs_mesh[q_ind];
-		epsilon += tmp*tmp;		
-		// assign the new total charge distribution
-		p3m.ipc_old_rs_mesh[q_ind] = p3m.ipc_mesh[q_ind];
+    /* 1. save the free charges (p3m.rs_mesh) in (p3m.ipc_rs_mesh)
+     *    Note: this function must be called right after p3m_charge_assign()
+     *          in forces.cpp, so that p3m.rs_mesh contains indeed the charges
+     *          and is not already overwritten by p3m_calc_kspace_forces()  */  
+    for(int q_ind = 0 ; q_ind < p3m.local_mesh.size; q_ind++){
+	  p3m.ipc_rs_mesh[q_ind] = p3m.rs_mesh[q_ind];
+    }
+    /* 2. assign the susceptibility according to the chosen method,
+       this overwrites p3m.rs_mesh. */
+    p3m_ipc_assign_susceptibility();
+    do { 
+    /* 3. assign to p3m.rs_mesh the total charges (pol+free, p3m.ipc_mesh) 
+          from last iteration.  */
+          for(int q_ind = 0 ; q_ind < p3m.local_mesh.size; q_ind++){
+  	       p3m.rs_mesh[q_ind] = p3m.ipc_mesh[q_ind];
 	  }
-    } while (epsilon > p3m.ipc_tolerance) ; 
+    /* 4. overwrite p3m.rs_mesh with forces from the total charges. Note that 
+          p3m_calc_kspace_forces() calls p3m_ipc_assign_polarization_charges() */
+	  tmp=0;
+          p3m_calc_kspace_forces(1, 0, 1); 
+    	  for(int q_ind = 0 ; q_ind < p3m.local_mesh.size ; q_ind++){
+		// calculate the total induced square charge 
+		tmp += SQR(p3m.ipc_mesh[q_ind] - p3m.ipc_rs_mesh[q_ind]);
+	  }
+	  if(tmp<1e-10 && p3m.ipc_induced_charge2 < 1e-10 ){
+		 // in this case the induced charge converged to zero...
+		 accuracy = 0.0;
+	  } else { 
+	         accuracy = 2.*fabs(tmp-p3m.ipc_induced_charge2) / (p3m.ipc_induced_charge2 + tmp);
+          }
+	  printf("eps=%g q^2 =%g start q^2 = %g\n",accuracy,tmp,p3m.ipc_induced_charge2);
+    /* 5. Iterate until precision is reached. */
+    } while (accuracy > p3m.ipc_tolerance) ; 
+    /* 6. copy induced charges to the p3m ones, to be used later for force calculation (in forces.cpp) */
+    for(int q_ind = 0 ; q_ind < p3m.local_mesh.size; q_ind++){
+  	 p3m.rs_mesh[q_ind] = p3m.ipc_mesh[q_ind];
+    }
 }
 #else 
 #warning NOT_USING_IPC
@@ -887,7 +992,6 @@ double p3m_calc_kspace_forces(int force_flag, int energy_flag, int ipc_flag)
     double k_space_energy=0.0, node_k_space_energy=0.0;
     /* directions */
     double *d_operator = NULL;
-
     P3M_TRACE(fprintf(stderr,"%d: p3m_perform: \n",this_node));
 //     fprintf(stderr, "calculating kspace forces\n");
 
@@ -1009,7 +1113,7 @@ double p3m_calc_kspace_forces(int force_flag, int energy_flag, int ipc_flag)
 
     if (p3m.params.epsilon != P3M_EPSILON_METALLIC) {
 #ifdef IPC
-      exit(printf("non-metallic boundary conditions not yet introduced in IPC\n"));
+        runtimeErrorMsg() <<"non-metallic boundary conditions not yet introduced in IPC\n";
 #endif
       k_space_energy += p3m_calc_dipole_term(force_flag, energy_flag);
     }

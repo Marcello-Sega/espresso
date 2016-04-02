@@ -319,6 +319,28 @@ int tclcommand_inter_coulomb_parse_p3m_opt_params(Tcl_Interp * interp, int argc,
   return TCL_OK;
 }
 
+int tclcommand_inter_coulomb_parse_ipc(Tcl_Interp * interp, int argc, char ** argv)
+{
+  if (argc < 1) {
+    Tcl_AppendResult(interp, "ipc LB|constraints|off expected, not \"",
+		     argv[0], "\"", (char *)NULL);
+    return TCL_ERROR;
+  }
+  if (ARG0_IS_S("LB") || ARG0_IS_S("constraints")) {
+     p3m_init_ipc(true);
+     argc--; argv++;
+  } else if (ARG0_IS_S("off")){
+     p3m_init_ipc(false);
+     argc--; argv++;
+  } else {
+    Tcl_AppendResult(interp, "ipc LB|constraints|off expected, not \"",
+     	     argv[0], argv[1], "\"", (char *)NULL);
+    return TCL_ERROR;
+  }
+  return TCL_OK;
+}
+
+
 /*********************** miscelanea of functions *************************************/
 
 int tclprint_to_result_p3m(Tcl_Interp *interp)

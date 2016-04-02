@@ -68,7 +68,10 @@ LB_Parameters lbpar = {
 #ifdef SHANCHEN
     /* mobility  */ {0.},  /* coupling       */ {0.}, /* remove_momentum */ 0,
 #endif
+#ifdef IPC
+    /* diel. permitt */ {1.},
 #endif
+#endif // LB_COMPONENTS==1
 
 #if (LB_COMPONENTS==2)
     /* rho            */ {1.0,1.0}, /* viscosity */ {0.0,0.0}, /* bulk_viscosity */ {-1.0,-1.0},
@@ -77,7 +80,10 @@ LB_Parameters lbpar = {
 #ifdef SHANCHEN
     /* mobility  */ {0.,0.},   /* coupling       */ {0.,0.,0.,0.}, /* remove_momentum */ 0,
 #endif
+#ifdef IPC
+    /* diel. permitt */ {1.,1.},
 #endif
+#endif // LB_COMPONENTS==2
     /* is_TRT  */        false,
     /* resend_halo    */ 0
 };
@@ -219,7 +225,28 @@ int lb_lbfluid_set_shanchen_coupling(double *p_coupling) {
 #endif
   return 0;
 }
-
+#ifdef IPC
+int lb_lbfluid_set_epsilon(double *epsilon) {
+    for(int ii=0;ii<LB_COMPONENTS;ii++){
+        if ( epsilon[ii] < 1 ) {
+            return -1;
+        }
+        if (lattice_switch & LATTICE_LB_GPU) {
+#ifdef LB_GPU
+#error IPC not implemented in LB_GPU
+        //    lbpar_gpu.ipc_eps[ii] = (float)epsilon[ii];
+        //    on_lb_params_change_gpu(LBPAR_EPSILON);
+#endif // LB_GPU
+        } else {
+#ifdef LB
+            lbpar.ipc_eps[ii] = epsilon[ii];
+#endif // LB
+        }
+    }
+    mpi_bcast_lb_params(LBPAR_EPSILON);
+    return 0;
+}
+#endif // IPC 
 
 int lb_lbfluid_set_mobility(double *p_mobility) {
     int ii;

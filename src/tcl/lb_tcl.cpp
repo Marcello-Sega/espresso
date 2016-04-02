@@ -185,6 +185,9 @@ void lbfluid_tcl_print_usage(Tcl_Interp *interp)
 #ifdef SHANCHEN
   Tcl_AppendResult(interp, "        [ coupling #float ]\n", (char *)NULL);
 #endif
+#ifdef IPC
+  Tcl_AppendResult(interp, "        [ epsilon #float ]\n", (char *)NULL);
+#endif
 }
 
 void lbnode_tcl_print_usage(Tcl_Interp *interp) 
@@ -409,6 +412,43 @@ int tclcommand_lbfluid(ClientData data, Tcl_Interp *interp, int argc, char **arg
           }
         }
       }
+#ifdef IPC
+      else if (ARG0_IS_S_EXACT("epsilon")) 
+      {
+        argc--; argv++;
+        if ( argc < LB_COMPONENTS -1 ) 
+        {
+          Tcl_AppendResult(interp, "epsilon requires argument(s)", (char *)NULL);
+          return TCL_ERROR;
+        } 
+        else 
+        { 
+          for(int i=0;i<LB_COMPONENTS;i++)
+          {
+            if(!ARG_IS_D(i,vectarg[i]) ) 
+            {
+              Tcl_AppendResult(interp, "epsilon requires real numbers as arguments", (char *)NULL); // TODO: fix this and similar ones...
+              return TCL_ERROR;
+            }
+            else if (vectarg[i]<1.0)
+            { 
+              Tcl_AppendResult(interp, "epsilon must be > 1 ", (char *)NULL);
+              return TCL_ERROR;
+            }
+          } 
+
+          if ( lb_lbfluid_set_epsilon(vectarg) == 0 ) 
+          {
+            argc-=(LB_COMPONENTS); argv+=(LB_COMPONENTS);
+          }
+          else
+          {
+            Tcl_AppendResult(interp, "Unknown Error setting epsilon", (char *)NULL);
+            return TCL_ERROR;
+          }
+        }
+      }
+#endif
       else if (ARG0_IS_S_EXACT("remove_momentum")) 
       {
         if ( lb_lbfluid_set_remove_momentum() == 0 ) 

@@ -28,6 +28,11 @@
 /// parse the basic p3m parameters
 int tclcommand_inter_coulomb_parse_p3m(Tcl_Interp * interp, int argc, char ** argv);
 
+#ifdef IPC
+/// parse the ipc switch
+int tclcommand_inter_coulomb_parse_ipc(Tcl_Interp * interp, int argc, char ** argv);
+#endif
+
 /// parse the optimization parameters of p3m and the tuner
 int tclcommand_inter_coulomb_parse_p3m_opt_params(Tcl_Interp * interp, int argc, char ** argv);
 

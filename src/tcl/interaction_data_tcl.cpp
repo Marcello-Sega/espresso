@@ -74,6 +74,9 @@
 #include "tunable_slip_tcl.hpp"
 
 // Coulomb
+#ifdef P3M
+#include "p3m.hpp"
+#endif
 #include "debye_hueckel_tcl.hpp"
 #include "elc_tcl.hpp"
 #include "maggs_tcl.hpp"
@@ -199,6 +202,15 @@ int tclcommand_inter_parse_coulomb(Tcl_Interp * interp, int argc, char ** argv)
 		       (char *) NULL);
       return TCL_ERROR;
     }
+#ifdef IPC
+    if (ARG0_IS_S("ipc") && (coulomb.method == COULOMB_P3M))
+      return tclcommand_inter_coulomb_parse_ipc(interp, argc - 1, argv + 1);
+    if (ARG0_IS_S("ipc") && ((coulomb.method == COULOMB_P3M_GPU) || (coulomb.method == COULOMB_ELC_P3M))) {
+      Tcl_AppendResult(interp, "ipc can not be used in conjunction with the gpu p3m and it has not been tested with ELC",
+		       (char *) NULL);
+      return TCL_ERROR;
+    }
+#endif
     if (coulomb.method == COULOMB_P3M || coulomb.method == COULOMB_P3M_GPU)
       return tclcommand_inter_coulomb_parse_p3m_opt_params(interp, argc, argv);
     else {
