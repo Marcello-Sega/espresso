@@ -226,11 +226,11 @@ void calc_long_range_energies()
 #ifdef DP3M
   case DIPOLAR_P3M:
     dp3m_dipole_assign(); 
-    energy.dipolar[1] = dp3m_calc_kspace_forces(0,1,0);
+    energy.dipolar[1] = dp3m_calc_kspace_forces(0,1);
     break;
   case DIPOLAR_MDLC_P3M:
     dp3m_dipole_assign(); 
-    energy.dipolar[1] = dp3m_calc_kspace_forces(0,1,0);
+    energy.dipolar[1] = dp3m_calc_kspace_forces(0,1);
     energy.dipolar[2] = add_mdlc_energy_corrections();
     break;
 #endif
