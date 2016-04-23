@@ -258,7 +258,7 @@ void p3m_pre_init(void) {
   p3m.ipc_grad_chi_data=NULL;
   p3m.ipc_grad_chi[0]=  p3m.ipc_grad_chi[1]=  p3m.ipc_grad_chi[2]=  p3m.ipc_grad_chi[3]=NULL;
   p3m.ipc_omega=0.7;
-  p3m.ipc_tolerance=1e-2;
+  p3m.ipc_tolerance=1e-4;
 #endif
 
   for (int i = 0; i < 7; i++)
@@ -332,7 +332,7 @@ void p3m_reinit_ipc(void){
 void p3m_init_ipc(bool value){
 	p3m.ipc=value;
 	p3m_reinit_ipc();
-        mpi_bcast_ipc_params();
+        mpi_bcast_coulomb_params();
 }
 #endif //IPC 
 void   p3m_init() {
@@ -669,7 +669,7 @@ void p3m_ipc_assign_susceptibility(void) {
 		    value = 0.;
 		    if (dir < 3){ // grad chi
 		        for(int ii=0; ii < LB_COMPONENTS; ii++) { 
-                    	    value += lbpar.ipc_eps[ii]*(lbfields[index+dr[dir]].rho[ii] - 
+                    	    value += (lbpar.ipc_eps[ii]-1)/(4.*M_PI)*(lbfields[index+dr[dir]].rho[ii] - 
                                                       lbfields[index-dr[dir]].rho[ii])/(2.*lbpar.agrid);
 		        }
                     } else {  // chi
@@ -679,10 +679,11 @@ void p3m_ipc_assign_susceptibility(void) {
                     }
                     lblattice.map_linear_index_to_global_pos(index, pos);
                     p3m_assign_charge(value ,pos, cp_cnt++);
-		 }
+		//if(dir==3)	printf("q=%f  rho=%f %f ; pos=%g %g %g eps = %g %g\n",value , lbfields[index].rho[0],lbfields[index].rho[1],pos[0],pos[1],pos[2],lbpar.ipc_eps[0],lbpar.ipc_eps[1]);
             }
           }
         }
+      }
 #endif
 #ifdef LB_GPU
 #error to be implemented
@@ -701,15 +702,18 @@ void p3m_ipc_assign_polarization_charges(int direction){
        p3m.ipc_induced_charge2 = 0.0;
        for(int q_ind = 0 ; q_ind < p3m.local_mesh.size ; q_ind++){
 	  p3m.ipc_induced_charge2 += SQR(p3m.ipc_mesh[q_ind]-p3m.ipc_rs_mesh[q_ind]);
+          // note that  ipc_grad_chi[3] is actually epsilon, not chi
           p3m.ipc_mesh[q_ind]  = (1-p3m.ipc_omega) * p3m.ipc_mesh[q_ind] +  
-					2 * p3m.ipc_omega * p3m.ipc_rs_mesh[q_ind] / (1+4*M_PI*p3m.ipc_grad_chi[3][q_ind]);
+					2 * p3m.ipc_omega * p3m.ipc_rs_mesh[q_ind] / (p3m.ipc_grad_chi[3][q_ind]);
+	printf(":: %g\n",p3m.ipc_grad_chi[3][q_ind]);
        }
     }
     for(int q_ind = 0 ; q_ind < p3m.local_mesh.size  ; q_ind++){
           // induced charges, new iteration contribution (from field)
           // TODO mind the order xyz, it might be different in Fs than in Qs
+          // note that  ipc_grad_chi[3] is actually epsilon, not chi
           p3m.ipc_mesh[q_ind] += -p3m.ipc_omega * p3m.ipc_grad_chi[direction][q_ind] * 
-					p3m.rs_mesh[q_ind] / (1+4*M_PI*p3m.ipc_grad_chi[3][q_ind])  ;
+					p3m.rs_mesh[q_ind] / (p3m.ipc_grad_chi[3][q_ind])  ;
     }        
 }
 
@@ -758,7 +762,7 @@ void  p3m_ipc_iterate(){
 	  } else { 
 	         accuracy = 2.*fabs(tmp-p3m.ipc_induced_charge2) / (p3m.ipc_induced_charge2 + tmp);
           }
-	  printf("eps=%g q^2 =%g start q^2 = %g\n",accuracy,tmp,p3m.ipc_induced_charge2);
+	  printf("eps=%g q^2 =%g start q^2 = %g\n",accuracy, tmp,p3m.ipc_induced_charge2);
     /* 5. Iterate until precision is reached. */
     } while (accuracy > p3m.ipc_tolerance) ; 
     /* 6. copy induced charges to the p3m ones, to be used later for force calculation (in forces.cpp) */
