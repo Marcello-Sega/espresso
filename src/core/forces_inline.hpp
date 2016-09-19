@@ -313,6 +313,9 @@ inline void add_non_bonded_pair_force(Particle *p1, Particle *p2,
   /* bond creation and breaking                  */
   /***********************************************/
 
+#ifdef EXCLUSIONS
+          if(do_nonbonded(p1,p2)){
+#endif
 #ifdef COLLISION_DETECTION
   if (collision_params.mode > 0)
     detect_collision(p1,p2);
@@ -465,6 +468,13 @@ inline void add_non_bonded_pair_force(Particle *p1, Particle *p2,
       break;
   }  
 #endif /* ifdef DIPOLES */
+
+#ifdef EXCLUSIONS
+          } else {
+   	     double q1q2 = p1->p.q*p2->p.q;
+             p3m_add_pair_corr_force(q1q2,d,dist2,sqrt(dist2),force);
+          } 
+#endif
   
   /***********************************************/
   /* add total nonbonded forces to particle      */

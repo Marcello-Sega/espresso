@@ -94,6 +94,9 @@ inline double calc_non_bonded_pair_energy(Particle *p1, Particle *p2,
 {
   double ret = 0;
 
+#ifdef EXCLUSIONS
+          if(do_nonbonded(p1,p2)){
+#endif
 #ifdef NO_INTRA_NB
   if (p1->p.mol_id==p2->p.mol_id) return 0;
 #endif
@@ -182,6 +185,9 @@ inline double calc_non_bonded_pair_energy(Particle *p1, Particle *p2,
   ret += interrf_pair_energy(p1,p2,ia_params,dist);
 #endif
 
+#ifdef EXCLUSIONS
+}  
+#endif
   return ret;
 }
 
@@ -204,6 +210,9 @@ inline void add_non_bonded_pair_energy(Particle *p1, Particle *p2, double d[3],
   *obsstat_nonbonded(&energy, p1->p.type, p2->p.type) +=
     calc_non_bonded_pair_energy(p1, p2, ia_params, d, dist, dist2);
 
+#ifdef EXCLUSIONS
+          if(do_nonbonded(p1,p2)){
+#endif
 #ifdef ELECTROSTATICS
   if (coulomb.method != COULOMB_NONE) {
     /* real space coulomb */
@@ -265,6 +274,22 @@ inline void add_non_bonded_pair_energy(Particle *p1, Particle *p2, double d[3],
   }
 #endif
 
+} else {
+#ifdef EXCLUSIONS
+    switch (coulomb.method) {
+          #ifdef P3M
+    case COULOMB_P3M_GPU:
+    case COULOMB_P3M:
+      ret = p3m_pair_corr_energy(p1->p.q*p2->p.q,d,dist2,dist);
+      break;
+          #endif
+    default:
+      ret = 0.0;
+
+     }
+    energy.coulomb[0] += ret;
+#endif
+}
 }
 
 /** Calculate bonded energies for one particle.

@@ -238,6 +238,25 @@ inline double p3m_add_pair_force(double chgfac, double *d,double dist2,double di
   return 0.0;
 }
 
+inline double p3m_add_pair_corr_force(double chgfac, double *d,double dist2,double dist,double force[3])
+{
+  int j;
+  double fac1,fac2, adist, erf_part_ri;
+  if(dist < p3m.params.r_cut) {
+    if (dist > 0.0){		//Vincent
+      adist = p3m.params.alpha * dist;
+      erf_part_ri = erf(adist) / dist;
+      fac1 = coulomb.prefactor * chgfac;
+      fac2 = fac1 * (erf_part_ri - 2.0*p3m.params.alpha*wupii*exp(-adist*adist)) / dist2;
+      for(j=0;j<3;j++)
+	force[j] += - fac2 * d[j];
+      ESR_TRACE(fprintf(stderr,"%d: RSE: Pair dist=%.3f: force (%.3e,%.3e,%.3e)\n",this_node,
+			dist,fac2*d[0],fac2*d[1],fac2*d[2]));
+    }
+  }
+  return 0.0;
+}
+
 void p3m_set_tune_params(double r_cut, int mesh[3], int cao,
 			 double alpha, double accuracy, int n_interpol);
 
@@ -265,6 +284,17 @@ inline double p3m_pair_energy(double chgfac, double *d,double dist2,double dist)
     erfc_part_ri = erfc(adist) / dist;
     return coulomb.prefactor*chgfac*erfc_part_ri;
 #endif
+  }
+  return 0.0;
+}
+inline double p3m_pair_corr_energy(double chgfac, double *d,double dist2,double dist)
+{
+  double adist, erf_part_ri;
+
+  if(dist < p3m.params.r_cut) {
+    adist = p3m.params.alpha * dist;
+    erf_part_ri = erf(adist) / dist;
+    return -coulomb.prefactor*chgfac*erf_part_ri;
   }
   return 0.0;
 }
