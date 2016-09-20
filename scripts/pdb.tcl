@@ -119,7 +119,7 @@ proc writepsf { file {N_P -1} {MPC -1} {N_CI -1} {N_pS -1} {N_nS -1} } {
 proc writepdb {args} {
     set file [lindex $args 0]
     set de "pos"
-    set mode "w"
+    set mode "a"
     set tag ""
     set lscale 1.0
     set namelist ""
@@ -152,6 +152,7 @@ proc writepdb {args} {
 	puts $f "REMARK $tag"
     }
     # write atoms
+    puts $f [format "CRYST1%9.3f%9.3f%9.3f%7.2f%7.2f%7.2f%10s%4d" [expr 10 * [lindex [setmd box_l] 0 ] ] [ expr 10 * [lindex [setmd box_l] 1 ] ] [expr  10* [lindex [setmd box_l] 2 ] ]  90. 90. 90. "P1" 1 ]
     set mp [setmd max_part]
     set cnt 1
     for {set p 0} { $p <= $mp } { incr p } {
@@ -170,8 +171,11 @@ proc writepdb {args} {
 	       #names longer than 4 chars will destroy pdb
 	       set name [string range $name 0 3]
 	    }
+	    set xx [expr [lindex $pos 0] * 10 ]
+	    set yy [expr [lindex $pos 1] * 10 ]
+	    set zz [expr [lindex $pos 2] * 10 ]
 	    puts $f [format "ATOM %6d%4s  UNX F%4d    %8.3f%8.3f%8.3f  0.00  0.00      T%03d" \
-			 $cnt $name [expr $p % 10000] [lindex $pos 0] [lindex $pos 1] [lindex $pos 2] $tp]
+			 $cnt $name [expr $p % 10000] $xx $yy $zz $tp]
 	    incr cnt
 	}
     }
