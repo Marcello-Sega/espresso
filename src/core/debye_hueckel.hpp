@@ -105,7 +105,7 @@ inline void add_dh_coulomb_pair_force(Particle *p1, Particle *p2, double d[3], d
       kappa_dist = dh_params.kappa*dist;
       kappa_RC = dh_params.kappa*dh_params.r_cut;
       fac = coulomb.prefactor * p1->p.q * p2->p.q * (1./dist) * (  erfc(kappa_dist)/(dist*dist)                       + 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_dist*kappa_dist)/dist  
-						      - erfc(kappa_RC)  /(dh_params.r_cut*dh_params.r_cut) - 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/RC) ;
+						      - erfc(kappa_RC)  /(dh_params.r_cut*dh_params.r_cut) - 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/dh_params.r_cut) ;
     for(j=0;j<3;j++)
       force[j] += fac * d[j];
 
@@ -165,7 +165,7 @@ inline double dh_coulomb_pair_energy(Particle *p1, Particle *p2, double dist)
       kappa_dist = dh_params.kappa*dist;
       kappa_RC = dh_params.kappa*dh_params.r_cut;
       return coulomb.prefactor * p1->p.q * p2->p.q *  ( erfc(kappa_dist)/dist  - erfc(kappa_RC)/dh_params.r_cut   + 
-								(erfc(kappa_RC)/(dh_params.r_cut*dh_params.r_cut)  + 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/RC) * (dist - dh_params.r_cut)
+								(erfc(kappa_RC)/(dh_params.r_cut*dh_params.r_cut)  + 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/dh_params.r_cut) * (dist - dh_params.r_cut)
       						      );
     }
     else 
