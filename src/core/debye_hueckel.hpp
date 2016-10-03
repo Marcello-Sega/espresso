@@ -73,6 +73,12 @@ inline void add_dh_coulomb_pair_force(Particle *p1, Particle *p2, double d[3], d
   if(dist >= dh_params.r_cut)
     return;
   
+  if(dist>dh_params.kappa) { // switched electrostatics
+    fac = coulomb.prefactor * q1 * q2 * exp(-kappa_dist)/(dh_params.eps_ext * dist*dist*dist) * (1.0 + kappa_dist);
+  } else { 
+    fac = coulomb.prefactor * q1 * q2 * p2->p.q / (dh_params.eps_int * dist*dist*dist);
+  }
+  
   if(dist > dh_params.r1) {
     const double kappa_dist = dh_params.kappa*dist;
     fac = coulomb.prefactor * q1 * q2 * exp(-kappa_dist)/(dh_params.eps_ext * dist*dist*dist) * (1.0 + kappa_dist);
@@ -91,7 +97,23 @@ inline void add_dh_coulomb_pair_force(Particle *p1, Particle *p2, double d[3], d
 {
   int j;
   double kappa_dist, fac;
-  
+ 
+#ifdef DSF 
+  double kappa_RC;
+  if(dist < dh_params.r_cut) {
+      /* debye hueckel case: */
+      kappa_dist = dh_params.kappa*dist;
+      kappa_RC = dh_params.kappa*dh_params.r_cut;
+      fac = coulomb.prefactor * p1->p.q * p2->p.q * (1./dist) * (  erfc(kappa_dist)/(dist*dist)                       + 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_dist*kappa_dist)/dist  
+						      - erfc(kappa_RC)  /(dh_params.r_cut*dh_params.r_cut) - 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/RC) ;
+    for(j=0;j<3;j++)
+      force[j] += fac * d[j];
+
+    ONEPART_TRACE(if(p1->p.identity==check_id) fprintf(stderr,"%d: OPT: DH   f = (%.3e,%.3e,%.3e) with part id=%d at dist %f fac %.3e\n",this_node,p1->f.f[0],p1->f.f[1],p1->f.f[2],p2->p.identity,dist,fac));
+    ONEPART_TRACE(if(p2->p.identity==check_id) fprintf(stderr,"%d: OPT: DH   f = (%.3e,%.3e,%.3e) with part id=%d at dist %f fac %.3e\n",this_node,p2->f.f[0],p2->f.f[1],p2->f.f[2],p1->p.identity,dist,fac));
+  }
+
+#else
   if(dist < dh_params.r_cut) {
     if(dh_params.kappa > 0.0) {
       /* debye hueckel case: */
@@ -108,6 +130,7 @@ inline void add_dh_coulomb_pair_force(Particle *p1, Particle *p2, double d[3], d
     ONEPART_TRACE(if(p1->p.identity==check_id) fprintf(stderr,"%d: OPT: DH   f = (%.3e,%.3e,%.3e) with part id=%d at dist %f fac %.3e\n",this_node,p1->f.f[0],p1->f.f[1],p1->f.f[2],p2->p.identity,dist,fac));
     ONEPART_TRACE(if(p2->p.identity==check_id) fprintf(stderr,"%d: OPT: DH   f = (%.3e,%.3e,%.3e) with part id=%d at dist %f fac %.3e\n",this_node,p2->f.f[0],p2->f.f[1],p2->f.f[2],p1->p.identity,dist,fac));
   }
+#endif
 }
 #endif
 
@@ -135,12 +158,26 @@ inline double dh_coulomb_pair_energy(Particle *p1, Particle *p2, double dist) {
 #else
 inline double dh_coulomb_pair_energy(Particle *p1, Particle *p2, double dist)
 {
+
+#ifdef DSF 
+  double kappa_dist,kappa_RC;
+  if(dist < dh_params.r_cut) {
+      kappa_dist = dh_params.kappa*dist;
+      kappa_RC = dh_params.kappa*dh_params.r_cut;
+      return coulomb.prefactor * p1->p.q * p2->p.q *  ( erfc(kappa_dist)/dist  - erfc(kappa_RC)/dh_params.r_cut   + 
+								(erfc(kappa_RC)/(dh_params.r_cut*dh_params.r_cut)  + 2 * dh_params.kappa /sqrt(M_PI) *exp(-kappa_RC*kappa_RC)/RC) * (dist - dh_params.r_cut)
+      						      );
+    }
+    else 
+      return 0.0;
+#else 
   if(dist < dh_params.r_cut) {
     if(dh_params.kappa > 0.0)
       return coulomb.prefactor * p1->p.q * p2->p.q * exp(-dh_params.kappa*dist) / dist;
     else 
       return coulomb.prefactor * p1->p.q * p2->p.q / dist;
   }
+#endif
   return 0.0;
 }
 #endif
